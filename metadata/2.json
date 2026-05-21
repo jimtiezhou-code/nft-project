@@ -1,0 +1,19 @@
+{
+  "name": "Crystal Blue #2",
+  "description": "A crystalline blue polygon floating in the digital void.",
+  "image": "ipfs://bafkreigbfobtyimp7kkucwrxr2bz3l4dhywuoyw62cvotcrob3zdhxx3gq",
+  "attributes": [
+    {
+      "trait_type": "Series",
+      "value": "Genesis"
+    },
+    {
+      "trait_type": "Number",
+      "value": "2"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Legendary"
+    }
+  ]
+}

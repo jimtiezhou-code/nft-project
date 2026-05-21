@@ -1,0 +1,19 @@
+{
+  "name": "Flame Vortex #3",
+  "description": "A fiery vortex swirling with cosmic energy and molten passion.",
+  "image": "ipfs://bafkreihtawzf35zee7esaubjhlb76xkfcocmwhapmklgrjoi5vsl3nosrm",
+  "attributes": [
+    {
+      "trait_type": "Series",
+      "value": "Genesis"
+    },
+    {
+      "trait_type": "Number",
+      "value": "3"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Legendary"
+    }
+  ]
+}

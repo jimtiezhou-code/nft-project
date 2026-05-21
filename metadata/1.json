@@ -1,0 +1,19 @@
+{
+  "name": "Golden Dawn #1",
+  "description": "A radiant golden circle emerging from the depths of the cosmos.",
+  "image": "ipfs://bafkreia2qoz4yiaacv5tiewq2gs7ioi32e4h2jmtgxy37csp2qfobokn7y",
+  "attributes": [
+    {
+      "trait_type": "Series",
+      "value": "Genesis"
+    },
+    {
+      "trait_type": "Number",
+      "value": "1"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Legendary"
+    }
+  ]
+}

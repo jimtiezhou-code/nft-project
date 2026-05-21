@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00BFFF"/>
+      <stop offset="100%" style="stop-color:#00008B"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="#0d0d2b"/>
+  <polygon points="200,60 330,240 200,320 70,240" fill="url(#g2)" opacity="0.9"/>
+  <text x="200" y="370" text-anchor="middle" font-family="Arial" font-size="28" fill="#00BFFF">Crystal Blue #2</text>
+</svg>

@@ -1,0 +1,13 @@
+# 敏感文件
+.env
+
+# Node.js
+node_modules/
+
+# Foundry
+cache/
+out/
+broadcast/**/dry-run/
+
+# macOS
+.DS_Store

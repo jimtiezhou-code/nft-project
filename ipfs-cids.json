@@ -1,0 +1,17 @@
+{
+  "images": {
+    "1": "bafkreia2qoz4yiaacv5tiewq2gs7ioi32e4h2jmtgxy37csp2qfobokn7y",
+    "2": "bafkreigbfobtyimp7kkucwrxr2bz3l4dhywuoyw62cvotcrob3zdhxx3gq",
+    "3": "bafkreihtawzf35zee7esaubjhlb76xkfcocmwhapmklgrjoi5vsl3nosrm"
+  },
+  "metadata": {
+    "1": "bafkreifwirfke75dd2nsfpz5wfyqtmvjghbwhecp4mnk3jx5aac6vxnpgy",
+    "2": "bafkreicnr5fx4czg63jcrhnkokhaek4fr2sp4owjooukkwacxfa2k77y2u",
+    "3": "bafkreiez2dyfg77m4p5btyg6hwa5zm2lacd7ekaj54hjb4hguh7hgq5mbe"
+  },
+  "tokenURIs": {
+    "0": "ipfs://bafkreifwirfke75dd2nsfpz5wfyqtmvjghbwhecp4mnk3jx5aac6vxnpgy",
+    "1": "ipfs://bafkreicnr5fx4czg63jcrhnkokhaek4fr2sp4owjooukkwacxfa2k77y2u",
+    "2": "ipfs://bafkreiez2dyfg77m4p5btyg6hwa5zm2lacd7ekaj54hjb4hguh7hgq5mbe"
+  }
+}
