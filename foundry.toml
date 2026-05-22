@@ -7,10 +7,16 @@ remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "forge-std/=lib/forge-std/src/"
 ]
+# Allow deploy scripts to write deployment artifacts
+fs_permissions = [{ access = "read-write", path = "./deployments/" }]
 
+# See also: https://book.getfoundry.sh/reference/forge/forge-script
+# forge script script/DeployNFTMarket.s.sol --rpc-url sepolia --broadcast --verify
 [rpc_endpoints]
-sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
-mainnet = "https://virginia.rpc.blxrbdn.com"
+sepolia = "${SEPOLIA_RPC_URL}"
+mainnet = "${MAINNET_RPC_URL}"
 
+# forge script ... --etherscan-api-key ${ETHERSCAN_API_KEY} --verify
 [etherscan]
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.etherscan.io/api" }
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

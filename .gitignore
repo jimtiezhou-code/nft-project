@@ -9,5 +9,8 @@ cache/
 out/
 broadcast/**/dry-run/
 
+# Deploy addresses (auto-generated, per-environment)
+deployments/
+
 # macOS
 .DS_Store

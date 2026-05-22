@@ -18,7 +18,7 @@ contract NFTMarket is ITokenReceiver {
     mapping(uint256 => Listing) public listings;
 
     event Listed(uint256 indexed tokenId, address indexed seller, uint256 price);
-    event Unlisted(uint256 indexed tokenId);
+    event Unlisted(uint256 indexed tokenId, address indexed seller);
     event Bought(uint256 indexed tokenId, address indexed buyer, address indexed seller, uint256 price);
 
     constructor(address _nft, address _token) {
@@ -45,7 +45,7 @@ contract NFTMarket is ITokenReceiver {
 
         listings[tokenId].active = false;
         nft.transferFrom(address(this), msg.sender, tokenId);
-        emit Unlisted(tokenId);
+        emit Unlisted(tokenId, l.seller);
     }
 
     /// @notice 直接购买 NFT（需先 approve 市场合约转移 TOKEN）
