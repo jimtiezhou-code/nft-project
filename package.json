@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "monitor": "tsx listener/monitor.ts",
+    "interact": "tsx scripts/interact.ts",
     "test": "echo \"Use 'forge test' for Solidity tests\" && exit 0"
   },
   "keywords": [],
