@@ -12,5 +12,8 @@ broadcast/**/dry-run/
 # Deploy addresses (auto-generated, per-environment)
 deployments/
 
+# Next.js
+.next/
+
 # macOS
 .DS_Store
