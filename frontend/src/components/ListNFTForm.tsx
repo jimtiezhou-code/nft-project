@@ -68,11 +68,6 @@ export default function ListNFTForm() {
   const { isLoading: isListPending, isSuccess: isListConfirmed, isError: isListFailed } =
     useWaitForTransactionReceipt({ hash: listHash });
 
-  // Mint test tokens
-  const { writeContract: mintToken, data: mintHash } = useWriteContract();
-  const { isLoading: isMintPending, isSuccess: isMintConfirmed } =
-    useWaitForTransactionReceipt({ hash: mintHash });
-
   // Chain: approve → list
   useEffect(() => {
     if (isApproveConfirmed && step === "approving") {
@@ -120,14 +115,6 @@ export default function ListNFTForm() {
     }
   }, [isApproveFailed]);
 
-  // Mint confirmed
-  useEffect(() => {
-    if (isMintConfirmed) {
-      addToast({ type: "success", title: "1000 MTK test tokens minted!", txHash: mintHash });
-      refetchBalance();
-    }
-  }, [isMintConfirmed]);
-
   const handleList = () => {
     if (!selectedTokenId || !priceMTK) {
       addToast({ type: "error", title: "Please select an NFT and enter a price." });
@@ -149,15 +136,6 @@ export default function ListNFTForm() {
     });
   };
 
-  const handleMintTokens = () => {
-    mintToken({
-      address: CONTRACTS.MyToken,
-      abi: MyTokenABI,
-      functionName: "mint",
-      args: [address!, parseEther("1000")],
-    });
-  };
-
   const totalTokens = nextTokenId ? Number(nextTokenId) : 0;
   const balanceNum = mtkBalance !== undefined ? Number(formatEther(mtkBalance as bigint)) : 0;
 
@@ -168,21 +146,10 @@ export default function ListNFTForm() {
 
         {/* MTK Balance */}
         <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600">Your MTK Balance</p>
-              <p className="text-2xl font-bold text-blue-800">
-                {balanceNum.toFixed(2)} MTK
-              </p>
-            </div>
-            <button
-              onClick={handleMintTokens}
-              disabled={isMintPending}
-              className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 disabled:opacity-50 transition font-medium"
-            >
-              {isMintPending ? "Minting..." : "Get Test Tokens"}
-            </button>
-          </div>
+          <p className="text-sm text-blue-600">Your MTK Balance</p>
+          <p className="text-2xl font-bold text-blue-800">
+            {balanceNum.toFixed(2)} MTK
+          </p>
         </div>
 
         {/* Select Token */}
