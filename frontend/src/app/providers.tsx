@@ -20,7 +20,7 @@ createAppKit({
   metadata: {
     name: "NFT Marketplace",
     description: "ERC20-powered NFT marketplace on Sepolia testnet",
-    url: "https://nft-marketplace.example.com",
+    url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     icons: [],
   },
   features: {
