@@ -28,7 +28,7 @@ nft-project/
 │   └── interfaces/
 │       └── ITokenReceiver.sol        # ERC20 callback interface
 ├── test/
-│   └── NFTMarket.t.sol               # 26 Foundry tests
+│   └── NFTMarket.t.sol               # 32 Foundry tests
 ├── script/
 │   ├── DeployMyNFT.s.sol             # Deploy NFT + mint 3 NFTs
 │   └── DeployNFTMarket.s.sol         # Deploy all 3 contracts
@@ -98,8 +98,10 @@ nft-project/
 ### 3.3 NFTMarket.sol — Marketplace Contract
 
 - Implements `ITokenReceiver` for ERC20 callback purchases
-- Constructor: `NFTMarket(address _nft, address _token)`
+- Constructor: `NFTMarket(address _nft, address _token, address _signer)`
+- Immutable state: `nft`, `token`, `signer` (EIP-712 permit signer)
 - Data: `Listing { address seller; uint256 price; bool active; }` per tokenId
+- Replay protection: `mapping(bytes32 => bool) usedDigests`
 
 **Core Functions:**
 
@@ -108,12 +110,14 @@ nft-project/
 | `list(tokenId, price)` | Transfer NFT to market, create listing |
 | `unlist(tokenId)` | Return NFT to seller, deactivate listing |
 | `buyNFT(tokenId, amount)` | Approve-based purchase (requires prior token approval) |
+| `permitBuy(tokenId, amount, deadline, signature)` | Whitelist purchase with EIP-712 offline signature |
 | `tokensReceived(from, amount, data)` | Callback: one-transaction atomic purchase |
 | `listings(tokenId)` | View listing info (seller, price, active) |
+| `buildPermitDigest(buyer, tokenId, amount, deadline)` | Build EIP-712 digest for off-chain signing |
 
 **Events:** `Listed`, `Unlisted`, `Bought`
 
-### 3.4 Two Purchase Flows
+### 3.4 Purchase Flows
 
 **Standard (2 transactions):**
 1. Buyer approves MTK spending to NFTMarket via `token.approve(market, price)`
@@ -122,6 +126,13 @@ nft-project/
 **Callback (1 transaction):**
 1. Buyer calls `token.transfer(market, price, abi.encode(tokenId))`
 2. Market receives tokens via `tokensReceived()` and completes the swap atomically
+
+**Whitelist Permit (off-chain signature):**
+1. Backend signs EIP-712 permit for `(buyer, tokenId, amount, deadline)` using `signer` private key
+2. Buyer receives signature off-chain
+3. Buyer approves MTK spending to NFTMarket
+4. Buyer calls `market.permitBuy(tokenId, amount, deadline, signature)`
+5. Contract verifies: signature matches `signer` → not expired → not replayed → executes purchase
 
 ---
 
@@ -312,7 +323,7 @@ npm run start    # Start production server
 
 ```bash
 forge test -vvv
-# 26 tests covering: list, unlist, buy, callback purchase, access control, edge cases
+# 32 tests covering: list, unlist, buy, permitBuy (whitelist + EIP-712), callback purchase, access control, edge cases
 ```
 
 ### 7.2 CLI Interaction Testing
@@ -346,8 +357,10 @@ npm run interact unlist   # Unlist an NFT
 
 ## 8. Key Design Decisions
 
-### 8.1 Why Two Purchase Methods?
-The standard approve+buy flow is more familiar to users. The callback (one-click) flow saves gas and improves UX but requires the ERC20 token to support `transferWithData`. We offer both for flexibility.
+### 8.1 Why Multiple Purchase Methods?
+- **Approve+Buy**: Familiar UX, two-step, requires prior MTK approval
+- **One-Click (ERC20 Callback)**: Single transaction, saves gas, requires `transferWithData` support
+- **PermitBuy (Whitelist)**: Backend-controlled access, EIP-712 off-chain signature, enables gated sales (e.g., only approved addresses can purchase specific NFTs)
 
 ### 8.2 Why Individual Listing Queries?
 Each NFT card queries its own listing independently. This avoids the need for a bulk-listing view function in the contract and simplifies the frontend. React Query deduplicates and caches results.
@@ -395,3 +408,60 @@ The layout reads wagmi state from cookies server-side and passes it as `initialS
 - [ ] Multi-chain deployment
 - [ ] Indexed events for faster frontend loading
 - [ ] Subgraph (The Graph) integration for event indexing
+
+---
+
+## 12. EIP-712 PermitBuy — Backend Signing Guide
+
+### Signing Parameters
+
+The backend signs an EIP-712 typed data structure:
+
+```
+PermitBuy(address buyer,uint256 tokenId,uint256 amount,uint256 deadline)
+```
+
+Domain:
+```
+EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)
+  name:    "NFTMarket Permit"
+  version: "1"
+```
+
+### JavaScript (ethers.js v6)
+
+```javascript
+const domain = {
+  name: "NFTMarket Permit",
+  version: "1",
+  chainId: 11155111,
+  verifyingContract: "0xMARKET_ADDRESS"
+};
+
+const types = {
+  PermitBuy: [
+    { name: "buyer", type: "address" },
+    { name: "tokenId", type: "uint256" },
+    { name: "amount", type: "uint256" },
+    { name: "deadline", type: "uint256" }
+  ]
+};
+
+const value = {
+  buyer: "0xBOB_ADDRESS",
+  tokenId: 0,
+  amount: 100000000000000000000n, // 100 MTK in wei
+  deadline: Math.floor(Date.now() / 1000) + 3600 // 1 hour
+};
+
+const signature = await signer.signTypedData(domain, types, value);
+// signature is 65 bytes (r + s + v), pass to frontend
+```
+
+### Contract Verification
+
+The contract verifies:
+1. `block.timestamp <= deadline` — signature not expired
+2. `!usedDigests[digest]` — not already used (replay protection)
+3. `ecrecover(digest, signature) == signer` — signed by authorized backend
+4. Listing is active and amount matches listing price
