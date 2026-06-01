@@ -18,6 +18,10 @@ contract NFTMarketTest is Test {
     address public alice;
     address public bob;
 
+    // 项目方签名者（白名单签名密钥对）
+    uint256 public signerPK;
+    address public signer;
+
     // 从私钥加载的账号（用于需要真实签名的测试场景）
     // Anvil 默认测试私钥 #1: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
     uint256 public deployerPK;
@@ -36,7 +40,6 @@ contract NFTMarketTest is Test {
         bob = makeAddr("bob");
 
         // 2. 从私钥加载账号 — 支持 .env 覆盖或使用 Anvil 默认私钥
-        // 从私钥加载账号（Anvil 默认测试私钥 #1，可通过 .env 中 TEST_PRIVATE_KEY 覆盖）
         string memory pkStr = vm.envOr("TEST_PRIVATE_KEY", string(""));
         if (bytes(pkStr).length > 0) {
             deployerPK = vm.parseUint(pkStr);
@@ -45,27 +48,33 @@ contract NFTMarketTest is Test {
         }
         deployer = vm.addr(deployerPK);
 
-        // 3. 给所有地址打标签 — 在 forge test -vvvv 输出中显示名称而非裸地址
+        // 3. 创建白名单签名者（使用 vm.createWallet 生成独立密钥对）
+        Vm.Wallet memory signerWallet = vm.createWallet("signer");
+        signerPK = signerWallet.privateKey;
+        signer = signerWallet.addr;
+
+        // 4. 给所有地址打标签 — 在 forge test -vvvv 输出中显示名称而非裸地址
         vm.label(owner, "owner");
         vm.label(alice, "alice");
         vm.label(bob, "bob");
         vm.label(deployer, "deployer");
+        vm.label(signer, "signer");
 
-        // 4. 给测试账号分配 ETH（支付 gas 费）
+        // 5. 给测试账号分配 ETH（支付 gas 费）
         vm.deal(alice, 100 ether);
         vm.deal(bob, 100 ether);
         vm.deal(deployer, 100 ether);
 
-        // 5. 部署合约
+        // 6. 部署合约（signer 作为白名单签名者）
         token = new MyToken();
         nft = new MyNFT();
-        market = new NFTMarket(address(nft), address(token));
+        market = new NFTMarket(address(nft), address(token), signer);
 
         vm.label(address(token), "MyToken");
         vm.label(address(nft), "MyNFT");
         vm.label(address(market), "NFTMarket");
 
-        // 6. 分发 Token 与 NFT
+        // 7. 分发 Token 与 NFT
         require(token.transfer(alice, INITIAL_SUPPLY), "transfer alice");
         require(token.transfer(bob, INITIAL_SUPPLY), "transfer bob");
 
@@ -234,6 +243,137 @@ contract NFTMarketTest is Test {
         vm.prank(bob);
         vm.expectRevert(); // ERC20: insufficient allowance
         market.buyNFT(0, PRICE);
+    }
+
+    // ==================== NFTMarket — permitBuy ====================
+
+    /// @notice 白名单用户通过 permitBuy 成功购买 NFT
+    function test_PermitBuy_Success() public {
+        // 1. Alice 上架 NFT
+        _listNFT(alice, 0, PRICE);
+
+        // 2. 项目方（signer）给 Bob 签发白名单签名
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = market.buildPermitDigest(bob, 0, PRICE, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPK, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        uint256 bobBefore = token.balanceOf(bob);
+        uint256 aliceBefore = token.balanceOf(alice);
+
+        // 3. Bob 使用签名购买
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        market.permitBuy(0, PRICE, deadline, signature);
+        vm.stopPrank();
+
+        assertEq(nft.ownerOf(0), bob);
+        assertEq(token.balanceOf(bob), bobBefore - PRICE);
+        assertEq(token.balanceOf(alice), aliceBefore + PRICE);
+        (,, bool active) = market.listings(0);
+        assertFalse(active);
+    }
+
+    /// @notice 非白名单用户（无签名）调用 permitBuy 应该 revert
+    function test_PermitBuy_RevertNoSignature() public {
+        _listNFT(alice, 0, PRICE);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory fakeSig = new bytes(65); // 全零签名
+
+        vm.prank(bob);
+        token.approve(address(market), PRICE);
+
+        vm.prank(bob);
+        vm.expectRevert("invalid permit signature");
+        market.permitBuy(0, PRICE, deadline, fakeSig);
+    }
+
+    /// @notice 使用错误的签名者签名应该 revert
+    function test_PermitBuy_RevertWrongSigner() public {
+        _listNFT(alice, 0, PRICE);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = market.buildPermitDigest(bob, 0, PRICE, deadline);
+
+        // 用 deployer 的密钥签名（不是 signer）
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(deployerPK, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        vm.expectRevert("invalid permit signature");
+        market.permitBuy(0, PRICE, deadline, signature);
+        vm.stopPrank();
+    }
+
+    /// @notice 签名过期后应该 revert
+    function test_PermitBuy_RevertExpired() public {
+        _listNFT(alice, 0, PRICE);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = market.buildPermitDigest(bob, 0, PRICE, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPK, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // 快进到过期后
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        vm.expectRevert("permit expired");
+        market.permitBuy(0, PRICE, deadline, signature);
+        vm.stopPrank();
+    }
+
+    /// @notice 同一签名不可重复使用（防重放）
+    function test_PermitBuy_RevertReplay() public {
+        _listNFT(alice, 0, PRICE);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = market.buildPermitDigest(bob, 0, PRICE, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPK, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // 第一次：成功
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        market.permitBuy(0, PRICE, deadline, signature);
+        vm.stopPrank();
+
+        // 重新上架同一个 NFT
+        vm.prank(bob);
+        nft.approve(address(market), 0);
+        vm.prank(bob);
+        market.list(0, PRICE);
+
+        // 第二次用同一个签名 → revert
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        vm.expectRevert("permit already used");
+        market.permitBuy(0, PRICE, deadline, signature);
+        vm.stopPrank();
+    }
+
+    /// @notice 修改签名参数后签名无效（防篡改）
+    function test_PermitBuy_RevertModifiedParams() public {
+        _listNFT(alice, 0, PRICE);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        // 签名是针对 tokenId=0 的
+        bytes32 digest = market.buildPermitDigest(bob, 0, PRICE, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPK, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // 上架另一个 NFT
+        _listNFT(alice, 1, PRICE);
+
+        // 用 tokenId=0 的签名去买 tokenId=1 → 签名摘要不匹配
+        vm.startPrank(bob);
+        token.approve(address(market), PRICE);
+        vm.expectRevert("invalid permit signature");
+        market.permitBuy(1, PRICE, deadline, signature); // 用 tokenId=0 的签名买 tokenId=1
+        vm.stopPrank();
     }
 
     // ==================== NFTMarket — tokensReceived ====================

@@ -37,18 +37,21 @@ contract DeployNFTMarket is Script {
         MyNFT nft = new MyNFT();
         console.log("MyNFT deployed at:", address(nft));
 
-        NFTMarket market = new NFTMarket(address(nft), address(token));
+        // signer 使用部署者地址（项目方可后续通过 setSigner 更改）
+        NFTMarket market = new NFTMarket(address(nft), address(token), msg.sender);
         console.log("NFTMarket deployed at:", address(market));
+        console.log("Permit signer:", msg.sender);
 
         vm.stopBroadcast();
 
-        _saveDeployment(network, address(token), address(nft), address(market));
+        _saveDeployment(network, address(token), address(nft), address(market), msg.sender);
 
         console.log(unicode"========== 部署摘要 ==========");
         console.log("Network:   ", network);
         console.log("MyToken:   ", vm.toString(address(token)));
         console.log("MyNFT:     ", vm.toString(address(nft)));
         console.log("NFTMarket: ", vm.toString(address(market)));
+        console.log("Signer:    ", vm.toString(msg.sender));
         console.log(unicode"地址已保存: deployments/", network, ".json");
         console.log(unicode"================================");
     }
@@ -57,7 +60,8 @@ contract DeployNFTMarket is Script {
         string memory network,
         address token,
         address nft,
-        address market
+        address market,
+        address signerAddr
     ) internal {
         string memory dir = "deployments";
         if (!vm.exists(dir)) {
@@ -74,6 +78,7 @@ contract DeployNFTMarket is Script {
         vm.serializeString(json, "MyToken", vm.toString(token));
         vm.serializeString(json, "MyNFT", vm.toString(nft));
         vm.serializeString(json, "NFTMarket", vm.toString(market));
+        vm.serializeString(json, "Signer", vm.toString(signerAddr));
         vm.serializeUint(json, "chainId", block.chainid);
         string memory output = vm.serializeString(json, "network", network);
         vm.writeJson(output, path);
